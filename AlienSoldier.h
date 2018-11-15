@@ -1,11 +1,7 @@
 #pragma once
-#include "CModel.h"
-
-#define IDLE_ANIMATION			6
-#define ATTACK_ANIMATION		5
-#define RUN_ANIMATION			4
-#define DYING_ANIMAION			3
-#define DAMAGED_ANIMATION		2
+#include "StateMachine.h"
+#include "AlienOwnedStates.h"
+#include <stdlib.h>
 
 #define IDLE_STATE				4
 #define ATTACK_STATE			3
@@ -16,80 +12,71 @@
 class AlienSoldier
 {
 public:
-	AlienSoldier(D3DXVECTOR3 pos) : mHp(100), mPos(pos)
+	AlienSoldier(float x, float y, float z) : mHp(50)
 	{
-		mBodyBoundingSphere._center.x = 0.0f;
-		mBodyBoundingSphere._center.y = 0.0f;
-		mBodyBoundingSphere._center.z = 0.0f;
-		mBodyBoundingSphere._radius = 30.0f;
-
-		mHeadBoundingSphere._center.x = 0.0f;
-		mHeadBoundingSphere._center.y = 0.0f;
-		mHeadBoundingSphere._center.z = 0.0f;
-		mHeadBoundingSphere._radius = 30.0f;
-
-		mState = IDLE_STATE;
-		mIsAlive = true;
-		mLastState = IDLE_STATE;
-		mType = rand() % 2;
+		mPos.x = x;
+		mPos.y = y;
+		mPos.z = z;		
+		mTraceSpeed = 10.0f;
+		state = IDLE_STATE;
+		is_alive = true;
+		m_pStateMachine = new StateMachine<AlienSoldier>(this);
+		m_pStateMachine->SetCurrentState(Stand::Instance());
 	}
-	AlienSoldier() : mHp(100)
+	AlienSoldier() : mHp(50)
 	{
-		mBodyBoundingSphere._center.x = 0.0f;
-		mBodyBoundingSphere._center.y = 0.0f;
-		mBodyBoundingSphere._center.z = 0.0f;
-		mBodyBoundingSphere._radius = 30.0f;
-
-		mHeadBoundingSphere._center.x = 0.0f;
-		mHeadBoundingSphere._center.y = 0.0f;
-		mHeadBoundingSphere._center.z = 0.0f;
-		mHeadBoundingSphere._radius = 30.0f;
-
-		mState = IDLE_STATE;
-		mIsAlive = true;
-		mLastState = IDLE_STATE;
-		mType = rand() % 2;
+		mPos.x = 0;
+		mPos.y = 0;
+		mPos.z = 0;
+		stagePosition = 11;
+		type = rand() % 3;
+		is_alive = true;	
+		state = IDLE_STATE;
+		mTraceSpeed = 10.0f;
+		m_pStateMachine = new StateMachine<AlienSoldier>(this);
+		m_pStateMachine->SetCurrentState(Stand::Instance());
 	}
 	~AlienSoldier()
 	{
+		delete m_pStateMachine;
 	}
 
-	void loadModel(wchar_t* strFileName, LPDIRECT3DDEVICE9 pd3dDevice);
-	void setMesh(LPD3DXFRAME frame, LPD3DXANIMATIONCONTROLLER animController);
-	LPD3DXFRAME getFrame() { return mModel.getFrameData(); }
-	LPD3DXANIMATIONCONTROLLER getAnimController() { return mModel.getAnimController(); }
-	void drawAlien(LPDIRECT3DDEVICE9 pd3dDevice, float timeDelta);
-	void moveAlienPos(float timeDelta);
-	void rotateAlien();
-	void createSphere(LPDIRECT3DDEVICE9 pd3dDevice);
-	void drawSphere(LPDIRECT3DDEVICE9 pd3dDevice);
+	void updateStateMachine();
+	StateMachine<AlienSoldier>*  GetFSM()const{ return m_pStateMachine; }
+	Vector3 getPos() { return mPos; }
+	Vector3 getTracePlayerPos() { return mTracePlayerPos; }
+	void moveAlien(Vector3 dest);
+	void setTracePlayerPos(Vector3 pos) { mTracePlayerPos.x = pos.x; mTracePlayerPos.y = pos.y; mTracePlayerPos.z = pos.z; }
+	int states(){ return state; }
+	int changeState_idle() { state = IDLE_STATE; m_pStateMachine->ChangeState(Stand::Instance()); return state; }
+	int changeState_trace(){ state = TRACE_STATE; m_pStateMachine->ChangeState(TraceEnemy::Instance()); return state; }
+	int changeState_attack(){ state = ATTACK_STATE; m_pStateMachine->ChangeState(AttackEnemy::Instance()); return state; }
+	int changeState_dead() { state = DYING_STATE; m_pStateMachine->ChangeState(Dead::Instance()); return state; }
+	int changeState_damaged() { state = DAMAGED_STATE; m_pStateMachine->ChangeState(Damaged::Instance()); return state; }
+	bool getAlive() { return is_alive; }
+	void setAlive(bool setValue) { is_alive = setValue; }
+	int getHp() { return mHp; }
+	void setHp(int hp){ mHp = hp; }
+	void decreaseHp(int setValue) { mHp -= setValue; }
+	int getAttackPlayerId(){ return mAttackPlayerId; }
+	void setAttackPlayerId(int setValue) { mAttackPlayerId = setValue; }
+	Vector3 setPos(int x, int y, int z){ mPos.x = x, mPos.y = y; mPos.z = z; return mPos; };
+	int getStagePosition() { return stagePosition; }
+	void setStagePosition(int setValue) { stagePosition = setValue; }
+	int getType() { return type; }
+	void setType(int setValue) { type = setValue; }
+	std::vector<Node_2D *> m_path;
 
-	void setPos(D3DXVECTOR3 setValue) { mPos = setValue; }
-	void setTraceEnemyPos(D3DXVECTOR3 setValue) { mTraceEnemyPos = setValue; }
-	void setState(int setValue) { mState = setValue; }
-	void setAlive(bool setValue) { mIsAlive = setValue; }
-	void setLastStateAnim() { mModel.SelectAnimation(mLastState); }
-	D3DXVECTOR3 getPos() { return mPos; }
-	int getState() { return mState; }
-	bool getAlive() { return mIsAlive; }
-	CModel getModel() { return mModel; }
-	void setModel(CModel& model) { mModel = model; }
-	int getType() { return mType; }
-	void setType(int setValue) { mType = setValue;; }
-	d3d::BoundingSphere getBodyBoundingSphere() { return mBodyBoundingSphere; }
-	d3d::BoundingSphere getHeadBoundingSphere() { return mHeadBoundingSphere; }
 private:
+	StateMachine<AlienSoldier>*  m_pStateMachine;
 	int mHp;
-	D3DXVECTOR3 mPos;
-	CModel mModel;
-	D3DXVECTOR3 mTraceEnemyPos;
-	d3d::BoundingSphere mHeadBoundingSphere;
-	d3d::BoundingSphere mBodyBoundingSphere;
-	ID3DXMesh* mHeadSphere;
-	ID3DXMesh* mBodySphere;
-	int mState;
-	int mType;
-	bool mIsAlive;
-	int mLastState;
+	Vector3 mPos;
+	Vector3 mTracePlayerPos;
+	float mTraceSpeed;
+	int type;
+	int state;
+	int stagePosition;
+	bool is_alive;
+	int mAttackPlayerId;
 };
 
